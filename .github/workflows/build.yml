@@ -78,6 +78,28 @@ jobs:
           unzip -q /tmp/gradle.zip -d "$HOME/gradle"
           echo "$HOME/gradle/gradle-8.4/bin" >> "$GITHUB_PATH"
 
+      # Android will not update an app whose signing key changed, so the keystore has to
+      # survive between runs. Restore it, create it on the very first run, and it is
+      # re-saved automatically at the end of the job.
+      - name: Restore signing keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: shadow-signing-keystore-v1
+
+      - name: Ensure signing keystore exists
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            echo "no cached keystore - generating one"
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10950 \
+              -dname "CN=Shadow Injector, OU=Dev, O=Shadow, L=Unknown, S=Unknown, C=IN"
+          fi
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android \
+            | grep -E "Owner|SHA1" | head -3
+
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -118,7 +140,7 @@ jobs:
             --title "SHADOW INJECTOR $GITHUB_REF_NAME" \
             --notes-file docs/release-notes.md \
             app/build/outputs/apk/debug/app-debug.apk \
-            app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/apk/release/app-release.apk
 
       - name: Report APK contents
         if: success()

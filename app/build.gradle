@@ -15,8 +15,8 @@ android {
         applicationId "com.shadow.injector"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
 
         // Both shipped libraries are arm64 only.
         ndk {
@@ -24,10 +24,27 @@ android {
         }
     }
 
+    signingConfigs {
+        // Standard debug keystore. Android REFUSES to update an app whose signature
+        // changed, so every build must use the same key. CI generates this file once and
+        // caches it (see .github/workflows/build.yml) which keeps the signature identical
+        // across releases - otherwise every "update" fails with "App not installed".
+        debug {
+            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            signingConfig signingConfigs.debug
         }
     }
 
