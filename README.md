@@ -33,18 +33,44 @@ libmain.so        ->  payload           (Unity / IL2CPP: il2cpp_*, libunity.so, 
 
 ## Building
 
+### On GitHub Actions (recommended — it just works)
+
+Every push builds the APK. The workflow at `.github/workflows/build.yml` installs
+everything from scratch and uploads the result:
+
+* **JDK 17 (Temurin)** — the baseline AGP 8.x requires
+* **Android SDK 34** + `build-tools;34.0.0` + `platform-tools`
+* **Gradle 8.4**
+
+```bash
+# trigger it by hand, or just push
+gh workflow run build.yml
+gh run watch          # follow the build
+gh run download       # pulls the APK artifact
+```
+
+Artifacts uploaded by each run:
+
+| Artifact | Contents |
+| --- | --- |
+| `shadow-injector-apk` | `app/build/outputs/apk/{debug,release}/*.apk` |
+| `gradle-wrapper` | `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` — commit these once and you can use `./gradlew` locally without installing Gradle |
+
+### Locally
+
 Open the folder in **Android Studio (Iguana or newer)** and press Run, or from a shell:
 
 ```bash
-gradle wrapper          # only needed once, generates gradle/wrapper/gradle-wrapper.jar
-./gradlew assembleDebug # -> app/build/outputs/apk/debug/app-debug.apk
+gradle wrapper                       # once: generates gradle/wrapper/gradle-wrapper.jar
+./gradlew generateLauncherIcons      # rebuilds icons from logo/logo.png
+./gradlew assembleDebug              # -> app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Requirements: Android Gradle Plugin 8.1.4, Kotlin 1.9.22, JDK 17, compileSdk 34.
+Requirements: JDK 17, Android SDK 34, AGP 8.1.4, Kotlin 1.9.22, Gradle 8.4.
 `minSdk 26`, and `abiFilters 'arm64-v8a'` because both shipped libraries are arm64 only.
 
-> `gradle/wrapper/gradle-wrapper.jar` is a binary and is not committed here — run
-> `gradle wrapper` once (or just let Android Studio open the project) before using `./gradlew`.
+> `gradle/wrapper/gradle-wrapper.jar` is a binary and is not committed — grab it from the
+> `gradle-wrapper` artifact of any Actions run, or run `gradle wrapper` once.
 
 ## Tuning
 
@@ -65,17 +91,24 @@ usage error, so if your build wants flags (e.g. `-p <pid> -l <lib>`) just add it
 
 ## Swapping the logo
 
-The launcher icon and the in-app header both come from generated placeholder art. To use your
-own, replace these and rebuild:
+**Replace one file: `logo/logo.png`.** That is it.
 
-| File | What it is |
-| --- | --- |
-| `app/src/main/res/drawable-nodpi/logo.png` | header logo (512×512) |
-| `app/src/main/res/drawable-nodpi/ic_launcher_foreground.png` | adaptive-icon foreground, 432×432 with the emblem inside the centre 264×264 safe zone |
-| `app/src/main/res/mipmap-*/ic_launcher.png` | legacy launcher icons (48/72/96/144/192) |
+The `generateLauncherIcons` Gradle task (wired into `preBuild`, and run explicitly by CI)
+resizes it into every asset the app uses:
 
-If you drop your logo in and it has a non-black background, also edit
-`res/drawable/ic_launcher_background.xml` to match.
+| Generated file | Size | Used for |
+| --- | --- | --- |
+| `app/src/main/res/drawable-nodpi/logo.png` | 512×512 | in-app header |
+| `app/src/main/res/drawable-nodpi/ic_launcher_foreground.png` | 432×432, artwork in the centre 264×264 safe zone | adaptive icon |
+| `app/src/main/res/mipmap-*/ic_launcher{,_round}.png` | 48/72/96/144/192 | legacy launcher icons |
+
+```bash
+# drop your artwork in, then
+./gradlew generateLauncherIcons
+```
+
+Square artwork works best; anything else is stretched to fit. If your logo is not on black,
+also edit `res/drawable/ic_launcher_background.xml` to match it.
 
 ## Notes
 

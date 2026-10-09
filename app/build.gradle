@@ -1,3 +1,7 @@
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import javax.imageio.ImageIO
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
@@ -14,7 +18,7 @@ android {
         versionCode 1
         versionName "1.0"
 
-        // The two shipped libraries are arm64 only.
+        // Both shipped libraries are arm64 only.
         ndk {
             abiFilters 'arm64-v8a'
         }
@@ -37,8 +41,9 @@ android {
     }
 
     packagingOptions {
-        // REQUIRED: keeps libmain.so / libRootMagisk.so uncompressed in the APK so they are
-        // extracted to nativeLibraryDir at install time. Without this we cannot copy them out.
+        // REQUIRED: keeps libmain.so / libRootMagisk.so uncompressed in the APK so they
+        // are extracted to nativeLibraryDir at install time. Without this we cannot copy
+        // them out to /data/local/tmp.
         jniLibs {
             useLegacyPackaging true
         }
@@ -53,4 +58,97 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
+}
+
+// ---------------------------------------------------------------------------
+// Launcher icons
+//
+// logo/logo.png is the single source of truth. Replace that ONE file with your
+// own artwork (any size, square is best) and every asset below is regenerated
+// from it on the next build:
+//   drawable-nodpi/logo.png                 512x512  in-app header
+//   drawable-nodpi/ic_launcher_foreground   432x432  adaptive icon safe zone
+//   mipmap-{mdpi..xxxhdpi}/ic_launcher      48..192  legacy launcher icons
+// ---------------------------------------------------------------------------
+
+def resizeImage = { BufferedImage src, int w, int h ->
+    BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
+    def gfx = out.createGraphics()
+    gfx.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+    gfx.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+    gfx.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+    gfx.drawImage(src, 0, 0, w, h, null)
+    gfx.dispose()
+    out
+}
+
+def writePng = { BufferedImage img, File out ->
+    out.parentFile.mkdirs()
+    ImageIO.write(img, "png", out)
+    out
+}
+
+def gfxHints = { java.awt.Graphics2D g ->
+    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+    g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+}
+
+tasks.register('generateLauncherIcons') {
+    def source = rootProject.file('logo/logo.png')
+    def res = file('src/main/res')
+
+    inputs.file(source)
+    outputs.files(
+            new File(res, 'drawable-nodpi/logo.png'),
+            new File(res, 'drawable-nodpi/ic_launcher_foreground.png'),
+            new File(res, 'mipmap-mdpi/ic_launcher.png')
+    )
+
+    doLast {
+        if (!source.exists()) {
+            logger.lifecycle("generateLauncherIcons: logo/logo.png not found - keeping committed icons")
+            return
+        }
+        BufferedImage src = ImageIO.read(source)
+        if (src == null) {
+            throw new GradleException("generateLauncherIcons: could not decode ${source}")
+        }
+
+        // In-app header logo.
+        writePng(resizeImage(src, 512, 512), new File(res, 'drawable-nodpi/logo.png'))
+
+        // Adaptive icon foreground: 432x432 canvas, artwork inside the 264x264 safe zone.
+        BufferedImage fg = new BufferedImage(432, 432, BufferedImage.TYPE_INT_ARGB)
+        def g = fg.createGraphics()
+        gfxHints(g)
+        g.drawImage(src, 84, 84, 264, 264, null)
+        g.dispose()
+        writePng(fg, new File(res, 'drawable-nodpi/ic_launcher_foreground.png'))
+
+        // Legacy launcher icons.
+        [['mdpi', 48], ['hdpi', 72], ['xhdpi', 96], ['xxhdpi', 144], ['xxxhdpi', 192]].each { entry ->
+            File square = new File(res, "mipmap-${entry[0]}/ic_launcher.png")
+            File round = new File(res, "mipmap-${entry[0]}/ic_launcher_round.png")
+            writePng(resizeImage(src, entry[1] as int, entry[1] as int), square)
+            java.nio.file.Files.copy(
+                    square.toPath(),
+                    round.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+
+        logger.lifecycle("generateLauncherIcons: rebuilt every icon from ${source}")
+    }
+}
+
+// Keep the icons fresh even when someone builds without naming the task.
+afterEvaluate {
+    def generator = tasks.named('generateLauncherIcons')
+    def pre = tasks.findByName('preBuild')
+    if (pre != null) {
+        pre.dependsOn(generator)
+    } else {
+        logger.warn("generateLauncherIcons: 'preBuild' task not found - run `./gradlew generateLauncherIcons` manually")
+    }
 }

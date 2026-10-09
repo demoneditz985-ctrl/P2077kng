@@ -1,0 +1,80 @@
+name: Build Shadow Injector APK
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # JDK 17 is what AGP 8.x requires — it is the baseline, not a preference.
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      # The wrapper jar is a binary and is not committed, so install Gradle directly.
+      - name: Set up Gradle 8.4
+        run: |
+          curl -sSL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.4-bin.zip
+          unzip -q /tmp/gradle.zip -d "$HOME/gradle"
+          echo "$HOME/gradle/gradle-8.4/bin" >> "$GITHUB_PATH"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      # (Re)generate gradlew + gradle/wrapper/gradle-wrapper.jar so local
+      # ./gradlew works too. They are uploaded as an artifact at the end.
+      - name: Generate Gradle wrapper
+        run: gradle wrapper --gradle-version 8.4 --distribution-type bin
+
+      # generateLauncherIcons rebuilds every icon from logo/logo.png.
+      - name: Build
+        run: ./gradlew generateLauncherIcons assemble --stacktrace
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-injector-apk
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+
+      - name: Upload Gradle wrapper (commit these to use ./gradlew locally)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-wrapper
+          path: |
+            gradle/wrapper/gradle-wrapper.jar
+            gradlew
+            gradlew.bat
+          if-no-files-found: warn
