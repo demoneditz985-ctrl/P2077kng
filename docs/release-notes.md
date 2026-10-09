@@ -1,33 +1,34 @@
-## SHADOW INJECTOR
+## SHADOW INJECTOR 1.0.1
 
-Root based injector launcher for Garena's Free Fire clients.
+**Fixes**
 
-**Targets**
+- Every build is now signed with the same key, so the in-app updater can actually install
+  updates instead of failing with "App not installed"
+- The release APK is signed and installable (it used to be `app-release-unsigned.apk`)
+
+**Included from 1.0.0**
+
+- Dark UI with animated starfield
+- Live overlay-permission, root and payload status
+- Single-select targets: Free Fire, Free Fire MAX, Free Fire Advanced
+- Injector waits for the Unity runtime to be mapped before injecting
+- Draggable `SHADOW` status chip over the game
+- Telegram promo on first launch, self updater on every launch
+
+---
+
+## Requirements
+
+- Android 8.0+ (arm64)
+- Rooted device (Magisk / KernelSU / APatch)
+- "Display over other apps" for this app
+- "Install unknown apps" for this app, if you want the in-app updater to self-install
+
+## Targets
 
 - Free Fire — `com.dts.freefireth`
 - Free Fire MAX — `com.dts.freefiremax`
 - Free Fire Advanced — `com.dts.freefireadv`
-
-**Requirements**
-
-- Android 8.0+ (arm64)
-- Rooted device (Magisk / KernelSU / APatch)
-- "Display over other apps" permission for this app
-
-**What's in this build**
-
-- Black / dark UI with an animated 3D starfield background
-- Live overlay-permission, root and payload status
-- Single-select targets; INJECT restages the payload, relaunches the game, waits for the
-  Unity runtime to be mapped, then runs the injector
-- Draggable `SHADOW` status chip drawn over the game
-- Colour-coded session log of every step
-- Self updater: on launch it reads `version.json` from the project page and offers any newer build
-
-**Assets**
-
-- `app-debug.apk` — debuggable build
-- `app-release-unsigned.apk` — release build, unsigned
 
 ---
 
