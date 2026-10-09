@@ -123,13 +123,7 @@ jobs:
               echo "--- summary ---"
               unzip -l "$apk" | tail -3
             done
-          } > apk-contents.txt
-          cat apk-contents.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f apk-contents.txt
-          git commit -m "apk contents for run $GITHUB_RUN_ID [skip ci]" || exit 0
-          git push || exit 0
+          } | tee apk-contents.txt
 
       - name: Upload Gradle wrapper (commit these to use ./gradlew locally)
         if: success()
