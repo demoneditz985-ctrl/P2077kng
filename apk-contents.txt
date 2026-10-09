@@ -1,0 +1,26 @@
+run: 37908424160
+date: Fri Oct  9 09:00:30 UTC 2026
+=================== app/build/outputs/apk/debug/app-debug.apk
+--- native libs ---
+  191680  Defl:N    69080  64% 1981-01-01 01:01 d69051bb  lib/arm64-v8a/libRootMagisk.so
+ 4795936  Defl:N  2221830  54% 1981-01-01 01:01 29cb14d6  lib/arm64-v8a/libmain.so
+--- extractNativeLibs from merged manifest ---
+        A: http://schemas.android.com/apk/res/android:supportsRtl(0x010103af)=false
+        A: http://schemas.android.com/apk/res/android:extractNativeLibs(0x010104ea)=true
+        A: http://schemas.android.com/apk/res/android:roundIcon(0x0101052c)=@0x7f0c0001
+--- summary ---
+   276544  1981-01-01 01:01   resources.arsc
+---------                     -------
+ 12827548                     455 files
+=================== app/build/outputs/apk/release/app-release-unsigned.apk
+--- native libs ---
+  191680  Defl:N    62820  67% 1981-01-01 01:01 d69051bb  lib/arm64-v8a/libRootMagisk.so
+ 4795936  Defl:N  2091174  56% 1981-01-01 01:01 29cb14d6  lib/arm64-v8a/libmain.so
+--- extractNativeLibs from merged manifest ---
+        A: http://schemas.android.com/apk/res/android:supportsRtl(0x010103af)=false
+        A: http://schemas.android.com/apk/res/android:extractNativeLibs(0x010104ea)=true
+        A: http://schemas.android.com/apk/res/android:roundIcon(0x0101052c)=@0x7f0c0001
+--- summary ---
+   261536  1981-01-01 01:01   resources.arsc
+---------                     -------
+ 11601891                     456 files
