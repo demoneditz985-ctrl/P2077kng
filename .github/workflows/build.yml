@@ -106,6 +106,27 @@ jobs:
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
+      - name: Report APK contents
+        if: success()
+        run: |
+          {
+            echo "run: $GITHUB_RUN_ID"
+            echo "date: $(date -u)"
+            for apk in app/build/outputs/apk/*/*.apk; do
+              echo "=================== $apk"
+              echo "--- native libs (method = Stored means uncompressed, as required) ---"
+              unzip -v "$apk" | grep -E "lib/.*\.so" || echo "(no .so found)"
+              echo "--- summary ---"
+              unzip -l "$apk" | tail -3
+            done
+          } > apk-contents.txt
+          cat apk-contents.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f apk-contents.txt
+          git commit -m "apk contents for run $GITHUB_RUN_ID [skip ci]" || exit 0
+          git push || exit 0
+
       - name: Upload Gradle wrapper (commit these to use ./gradlew locally)
         if: success()
         uses: actions/upload-artifact@v4
