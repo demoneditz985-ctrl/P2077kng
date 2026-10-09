@@ -89,6 +89,66 @@ Everything adjustable lives in
 in `ARG_TEMPLATES` in turn and falls through to the next one whenever the injector prints a
 usage error, so if your build wants flags (e.g. `-p <pid> -l <lib>`) just add it to the list.
 
+## Releases
+
+Tag pushes cut a release automatically:
+
+```bash
+# 1. bump the app
+#    app/build.gradle -> defaultConfig { versionCode 2; versionName "1.1" }
+# 2. bump the manifest the app and the site read
+#    docs/version.json -> versionCode / versionName / apkUrl / notes
+# 3. write what changed
+#    docs/release-notes.md
+git commit -am "release 1.1"
+git tag v1.1
+git push origin arena/0a1ba0a0-p2077kng
+git push origin v1.1          # -> CI builds and attaches both APKs to the release
+```
+
+`app-debug.apk` and `app-release-unsigned.apk` are attached to every tagged release, so
+`https://github.com/demoneditz985-ctrl/P2077kng/releases/latest/download/app-debug.apk`
+always resolves to the newest build — that is the URL `docs/version.json` should point at.
+
+## Website + in-app updates
+
+`docs/` is a GitHub Pages site: download page, changelog, requirements, Telegram link, and an
+animated starfield matching the app. It renders `docs/version.json`, so editing that one file
+updates both the page and what the app offers as an update.
+
+**Enable it once (needs repo admin, I cannot do it from here):**
+
+> Settings → Pages → Source: *Deploy from a branch* → Branch: `arena/0a1ba0a0-p2077kng`
+> → Folder: `/docs` → Save
+
+Site URL: **https://demoneditz985-ctrl.github.io/P2077kng/**
+
+On every launch the app fetches `version.json` from that URL. If the advertised `versionCode`
+is higher than the installed one, it shows **UPDATE AVAILABLE** with your notes, downloads the
+APK and hands it to the package installer. Set `"force": true` to make the dialog
+non-dismissible. First install needs *Install unknown apps* allowed for Shadow Injector.
+
+### Telegram promo
+
+On first launch the app shows a **JOIN TELEGRAM** dialog. **JOIN** opens
+https://t.me/+BBimnHMiSvpiYTBl — **CLOSE** dismisses it and the flag in
+`SharedPreferences` (`promo_telegram_done`) means it never shows again. The URL lives in
+`Updater.TELEGRAM_URL`.
+
+## Troubleshooting injection
+
+| Symptom | Likely cause / fix |
+| --- | --- |
+| Screen stutters badly during injection | ptrace briefly stops the game. Also: the payload used to be re-staged (5 MB of shell I/O) on every single inject — it is now only re-copied when `libmain.so` actually changes. |
+| Payload loads, game dies instantly or after 1–3 min | The payload resolves `il2cpp_*` symbols. Injecting before `libil2cpp.so` is mapped is fatal. `WAIT_FOR_UNITY` now polls `/proc/<pid>/maps` for `libil2cpp.so` / `libunity.so` first (see `InjectorConfig`). |
+| Injected into the wrong process | Games fork helpers. `awaitGameProcess()` picks the PID that actually has the Unity runtime mapped rather than the first `pidof` result. |
+| `dlopen` blocked | Staging relabels with `chcon u:object_r:system_file:s0`, and `RETRY_PERMISSIVE` retries once with `setenforce 0`. |
+| Nothing in the log | Run `adb logcat -s ShadowUpdater` for updater output, and read the injector's own stdout/stderr — it is printed to the session log verbatim. |
+
+If the payload itself crashes, that is inside `libmain.so` and there is nothing this launcher
+can do about it — the useful diagnostic is `adb logcat` filtered on the game package at the
+moment of the crash.
+
 ## Swapping the logo
 
 **Replace one file: `logo/logo.png`.** That is it.
