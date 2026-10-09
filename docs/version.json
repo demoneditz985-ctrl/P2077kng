@@ -1,8 +1,8 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0",
-  "apkUrl": "https://github.com/demoneditz985-ctrl/P2077kng/releases/latest/download/app-debug.apk",
-  "notes": "First release. Dark UI with animated starfield, overlay + root status, and injection for Free Fire, Free Fire MAX and Free Fire Advanced.",
+  "versionCode": 2,
+  "versionName": "1.0.1",
+  "apkUrl": "https://github.com/demoneditz985-ctrl/P2077kng/releases/latest/download/app-release.apk",
+  "notes": "1.0.1: every build is now signed with the same key, so the in-app updater installs updates correctly instead of failing with \"App not installed\". The release APK is signed and installable.",
   "force": false,
   "telegram": "https://t.me/+BBimnHMiSvpiYTBl",
   "updated": "2026-10-09"

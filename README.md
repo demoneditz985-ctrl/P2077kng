@@ -89,26 +89,61 @@ Everything adjustable lives in
 in `ARG_TEMPLATES` in turn and falls through to the next one whenever the injector prints a
 usage error, so if your build wants flags (e.g. `-p <pid> -l <lib>`) just add it to the list.
 
-## Releases
+## Pushing a patch update
 
-Tag pushes cut a release automatically:
+### Do this once
 
-```bash
-# 1. bump the app
-#    app/build.gradle -> defaultConfig { versionCode 2; versionName "1.1" }
-# 2. bump the manifest the app and the site read
-#    docs/version.json -> versionCode / versionName / apkUrl / notes
-# 3. write what changed
-#    docs/release-notes.md
-git commit -am "release 1.1"
-git tag v1.1
-git push origin arena/0a1ba0a0-p2077kng
-git push origin v1.1          # -> CI builds and attaches both APKs to the release
-```
+Turn on Pages: **Settings -> Pages -> Source: *Deploy from a branch* -> Branch:
+`arena/0a1ba0a0-p2077kng` -> Folder: `/docs` -> Save.** Until then `version.json` is never
+served and the app silently finds nothing to update to.
 
-`app-debug.apk` and `app-release-unsigned.apk` are attached to every tagged release, so
-`https://github.com/demoneditz985-ctrl/P2077kng/releases/latest/download/app-debug.apk`
-always resolves to the newest build — that is the URL `docs/version.json` should point at.
+### Then, for every patch
+
+1. **Fix the code** - commit whatever the patch changes to the branch.
+
+2. **Bump `versionCode` in `app/build.gradle`.** This is the *only* value the updater
+   compares, so it must go up by at least 1. `versionName` is just the label users see.
+   ```groovy
+   defaultConfig { versionCode 3; versionName "1.0.2" }
+   ```
+
+3. **Write `docs/release-notes.md`** - it becomes the GitHub release description.
+
+4. **Push, then tag.** The tag is what triggers the release build:
+   ```bash
+   git commit -am "fix: <what you fixed>"
+   git push origin arena/0a1ba0a0-p2077kng
+   git tag v1.0.2
+   git push origin v1.0.2
+   ```
+
+5. **Wait for the run to go green** (~2-3 min). It attaches `app-debug.apk` and
+   `app-release.apk` to the release and marks it `latest`.
+
+6. **Only now update `docs/version.json`** - `versionCode`, `versionName`, `notes`,
+   `updated`. Pushing this is the switch that makes every installed app offer the update:
+   ```bash
+   git commit -am "publish 1.0.2" && git push origin arena/0a1ba0a0-p2077kng
+   ```
+   Do it **after** step 5. Bump it earlier and users tap UPDATE and get the *previous* APK,
+   because `/releases/latest` still points at the old release until the new one exists.
+
+7. **Announce on Telegram** - paste the notes and the release link.
+
+Users then see **UPDATE AVAILABLE** the next time they open the app, download ~5 MB and
+install. Set `"force": true` in `version.json` to make the dialog impossible to dismiss.
+
+### Two things that will bite you
+
+- **Never change the signing key.** Android refuses an update whose signature differs, with a
+  bare *App not installed*. CI generates `~/.android/debug.keystore` on the first run and
+  caches it, so it normally stays consistent - but if that cache is ever evicted (GitHub drops
+  caches unused for 7 days) the next build is signed with a fresh key and updates break until
+  users reinstall by hand. For a setup that cannot rot, put a real keystore in repo secrets and
+  point `signingConfigs` at it.
+- **This ships a full APK, not a binary diff.** Every update downloads the complete ~5 MB
+  install. Real delta patching would need a server that builds per-version patches.
+
 
 ## Website + in-app updates
 
