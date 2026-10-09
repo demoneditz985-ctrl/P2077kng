@@ -120,3 +120,5 @@ also edit `res/drawable/ic_launcher_background.xml` to match it.
   there verbatim.
 
 <!-- ci trigger probe -->
+
+<!-- trigger build -->
