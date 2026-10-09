@@ -40,6 +40,11 @@ android {
         jvmTarget = '17'
     }
 
+    buildFeatures {
+        // AGP 8 disables this by default; MainActivity shows BuildConfig.VERSION_NAME.
+        buildConfig = true
+    }
+
     packagingOptions {
         // REQUIRED: keeps libmain.so / libRootMagisk.so uncompressed in the APK so they
         // are extracted to nativeLibraryDir at install time. Without this we cannot copy
