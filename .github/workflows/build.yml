@@ -17,25 +17,58 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to commit build-log.txt when the build fails
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # JDK 17 is what AGP 8.x requires — it is the baseline, not a preference.
+      # JDK 17 is the baseline AGP 8.x requires, not a preference.
       - name: Set up JDK 17 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
+      # The ubuntu runner image already ships the Android SDK; we just add the
+      # exact packages this project compiles against. No third-party action here
+      # on purpose (older actions break on the Node 24 runner).
+      - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          set -e
+          : "${ANDROID_HOME:=/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in \
+              "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+              "$ANDROID_HOME/cmdline-tools/bin/sdkmanager"; do
+              if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+            done
+          fi
+
+          # Bootstrap cmdline-tools only if the image did not ship them.
+          if [ -z "$SDKMANAGER" ]; then
+            echo "cmdline-tools missing - bootstrapping"
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            curl -sSL -o /tmp/cmdtools.zip \
+              https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+            unzip -q /tmp/cmdtools.zip -d "$ANDROID_HOME/cmdline-tools"
+            if [ -d "$ANDROID_HOME/cmdline-tools/cmdline-tools" ]; then
+              mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            fi
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+
+          echo "SDKMANAGER=$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          "$SDKMANAGER" --list_installed 2>/dev/null || true
 
       # The wrapper jar is a binary and is not committed, so install Gradle directly.
       - name: Set up Gradle 8.4
@@ -53,16 +86,20 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-gradle-
 
-      # (Re)generate gradlew + gradle/wrapper/gradle-wrapper.jar so local
-      # ./gradlew works too. They are uploaded as an artifact at the end.
+      # (Re)generate gradlew + gradle/wrapper/gradle-wrapper.jar so ./gradlew works
+      # locally too. They are uploaded as an artifact at the end.
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.4 --distribution-type bin
 
       # generateLauncherIcons rebuilds every icon from logo/logo.png.
       - name: Build
-        run: ./gradlew generateLauncherIcons assemble --stacktrace
+        id: build
+        run: |
+          set -o pipefail
+          ./gradlew generateLauncherIcons assemble --stacktrace 2>&1 | tee build-log.txt
 
       - name: Upload APKs
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: shadow-injector-apk
@@ -70,6 +107,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Gradle wrapper (commit these to use ./gradlew locally)
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: gradle-wrapper
@@ -78,3 +116,15 @@ jobs:
             gradlew
             gradlew.bat
           if-no-files-found: warn
+
+      # Log downloads are not reachable from everywhere, so drop the tail of the
+      # build output into the repo. "[skip ci]" stops this from re-triggering.
+      - name: Publish build log on failure
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          tail -n 400 build-log.txt > build-log-tail.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f build-log.txt build-log-tail.txt
+          git commit -m "build log for run $GITHUB_RUN_ID [skip ci]" || exit 0
+          git push || exit 0
