@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SHADOW INJECTOR</string>
+    <string name="subtitle">ROOT · IL2CPP PAYLOAD INJECTOR</string>
+
+    <string name="device_status">DEVICE STATUS</string>
+    <string name="overlay_permission">OVERLAY PERMISSION</string>
+    <string name="root_access">ROOT ACCESS</string>
+    <string name="payload">PAYLOAD</string>
+    <string name="select_target">SELECT TARGET</string>
+    <string name="session_log">SESSION LOG</string>
+
+    <string name="grant">GRANT</string>
+    <string name="hide">HIDE</string>
+    <string name="recheck">RECHECK</string>
+
+    <string name="inject">INJECT</string>
+    <string name="injecting">INJECTING…</string>
+
+    <string name="installed">INSTALLED</string>
+    <string name="not_found">NOT FOUND</string>
+</resources>

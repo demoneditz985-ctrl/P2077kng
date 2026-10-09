@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="bg">#FF000000</color>
+    <color name="bg_panel">#0DFFFFFF</color>
+    <color name="bg_panel_selected">#1A00E5FF</color>
+    <color name="stroke">#24FFFFFF</color>
+    <color name="stroke_selected">#FF00E5FF</color>
+
+    <color name="accent">#FF00E5FF</color>
+    <color name="accent_alt">#FFB388FF</color>
+    <color name="accent_deep">#FF7C4DFF</color>
+
+    <color name="text_primary">#FFE9F6FF</color>
+    <color name="text_secondary">#CC9FB6C6</color>
+    <color name="text_dim">#8C6C8296</color>
+
+    <color name="ok">#FF00E676</color>
+    <color name="bad">#FFFF5252</color>
+    <color name="warn">#FFFFD740</color>
+
+</resources>
