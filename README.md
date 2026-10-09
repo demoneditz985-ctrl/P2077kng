@@ -118,3 +118,5 @@ also edit `res/drawable/ic_launcher_background.xml` to match it.
   library) as root; it then `dlopen()`s `libmain.so` inside the game process.
 * If staging or injection fails, read the session log — the injector's own output is printed
   there verbatim.
+
+<!-- ci trigger probe -->
