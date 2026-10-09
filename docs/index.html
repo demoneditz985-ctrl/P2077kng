@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SHADOW INJECTOR — download &amp; updates</title>
+<meta name="description" content="SHADOW INJECTOR — root based injector launcher for Free Fire, Free Fire MAX and Free Fire Advanced. Download the latest APK and read the changelog." />
+<style>
+  :root {
+    --bg: #000000;
+    --panel: rgba(255,255,255,0.05);
+    --stroke: rgba(255,255,255,0.14);
+    --accent: #00e5ff;
+    --accent2: #b388ff;
+    --accent3: #7c4dff;
+    --text: #e9f6ff;
+    --dim: #8fa8b8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  /* animated starfield backdrop */
+  #stars {
+    position: fixed; inset: 0; z-index: 0; display: block;
+    background: radial-gradient(ellipse at 50% 30%, #0d1a2b 0%, #000 60%);
+  }
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 760px; margin: 0 auto; padding: 48px 20px 72px;
+  }
+  header { text-align: center; }
+  .logo {
+    width: 132px; height: 132px; border-radius: 26px;
+    box-shadow: 0 0 60px rgba(0,229,255,0.28);
+  }
+  h1 {
+    margin: 18px 0 6px; font-size: 30px; letter-spacing: 0.22em; font-weight: 800;
+    text-shadow: 0 0 26px rgba(0,229,255,0.45);
+  }
+  .tag { color: var(--dim); font-size: 11.5px; letter-spacing: 0.28em; text-transform: uppercase; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--stroke);
+    border-radius: 16px; padding: 20px 22px; margin-top: 26px;
+    backdrop-filter: blur(6px);
+  }
+  .card h2 {
+    margin: 0 0 14px; font-size: 11px; letter-spacing: 0.28em;
+    text-transform: uppercase; color: var(--dim); font-weight: 700;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .ver { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); font-weight: 700; }
+  .muted { color: var(--dim); font-size: 13px; line-height: 1.65; margin: 0; }
+  ul.req { margin: 0; padding-left: 18px; color: var(--dim); font-size: 13px; line-height: 1.85; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    height: 52px; padding: 0 30px; border-radius: 28px; border: 0; cursor: pointer;
+    font-weight: 800; letter-spacing: 0.18em; font-size: 13px; text-decoration: none;
+    background: linear-gradient(90deg, var(--accent), var(--accent3));
+    color: #04121a; text-transform: uppercase;
+    box-shadow: 0 10px 34px rgba(0,229,255,0.22);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 14px 40px rgba(0,229,255,0.32); }
+  .btn.ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--stroke); box-shadow: none;
+  }
+  .btn.ghost:hover { border-color: var(--accent); box-shadow: 0 10px 30px rgba(0,229,255,0.14); }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+
+  code.pkg { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent2); }
+  footer { margin-top: 34px; text-align: center; color: #5c7284; font-size: 11.5px; letter-spacing: 0.16em; }
+  .warn {
+    margin-top: 22px; padding: 14px 16px; border-radius: 12px;
+    border: 1px solid rgba(255,215,64,0.28); background: rgba(255,215,64,0.07);
+    color: #ffd740; font-size: 12.5px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+
+<div class="wrap">
+  <header>
+    <img class="logo" src="logo.png" alt="SHADOW INJECTOR" />
+    <h1>SHADOW INJECTOR</h1>
+    <div class="tag">Root · IL2CPP payload injector</div>
+  </header>
+
+  <div class="card">
+    <h2>Latest build</h2>
+    <div class="row">
+      <div>
+        <div class="ver" id="ver">v—</div>
+        <div class="muted" id="updated" style="margin-top:4px"></div>
+      </div>
+      <div class="muted" id="size"></div>
+    </div>
+    <div class="actions">
+      <a class="btn" id="download" href="https://github.com/demoneditz985-ctrl/P2077kng/releases/latest" >DOWNLOAD APK</a>
+      <a class="btn ghost" id="telegram" href="https://t.me/+BBimnHMiSvpiYTBl" target="_blank" rel="noopener">TELEGRAM</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>What's new</h2>
+    <p class="muted" id="notes">Loading changelog…</p>
+  </div>
+
+  <div class="card">
+    <h2>Supported targets</h2>
+    <ul class="req">
+      <li>Free Fire — <code class="pkg">com.dts.freefireth</code></li>
+      <li>Free Fire MAX — <code class="pkg">com.dts.freefiremax</code></li>
+      <li>Free Fire Advanced — <code class="pkg">com.dts.freefireadv</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Requirements</h2>
+    <ul class="req">
+      <li>Android 8.0+ on an arm64 device</li>
+      <li>Rooted phone — Magisk, KernelSU or APatch</li>
+      <li>"Display over other apps" granted to Shadow Injector</li>
+      <li>"Install unknown apps" granted if you want the in-app updater to self-install</li>
+    </ul>
+    <div class="warn">
+      Root tools like this can get your game account banned and can destabilise your device.
+      Use it on your own hardware and at your own risk.
+    </div>
+  </div>
+
+  <footer>SHADOW INJECTOR · BUILT VIA GITHUB ACTIONS</footer>
+</div>
+
+<script>
+// ---- starfield -------------------------------------------------------------
+(function () {
+  const c = document.getElementById('stars');
+  const ctx = c.getContext('2d');
+  let w, h, cx, cy, stars = [], t = 0, raf;
+
+  function resize() {
+    w = c.width = window.innerWidth;
+    h = c.height = window.innerHeight;
+    cx = w / 2; cy = h * 0.4;
+    const n = Math.max(90, Math.min(240, Math.round((w * h) / 9000)));
+    stars = Array.from({ length: n }, () => ({
+      a: Math.random() * Math.PI * 2,
+      r: 0.04 + Math.random() * 0.96,
+      z: 0.05 + Math.random() * 0.95,
+      p: Math.random() * Math.PI * 2,
+      s: 0.5 + Math.random() * 1.8
+    }));
+  }
+
+  function frame() {
+    t += 0.016;
+    ctx.clearRect(0, 0, w, h);
+    for (const st of stars) {
+      st.z -= 0.0009;
+      if (st.z <= 0.035) { st.z = 1; st.a = Math.random() * Math.PI * 2; st.r = 0.8 + Math.random() * 0.2; }
+      const k = 1 - st.z;
+      const spread = Math.max(w, h) * 0.72;
+      const x = cx + Math.cos(st.a) * st.r / st.z * spread;
+      const y = cy + Math.sin(st.a) * st.r / st.z * spread;
+      if (x < -40 || x > w + 40 || y < -40 || y > h + 40) continue;
+      let alpha = k * k * 235;
+      alpha *= 0.62 + 0.38 * Math.sin(t * st.s * 2 + st.p);
+      if (alpha <= 2) continue;
+      ctx.fillStyle = 'rgba(210,240,255,' + (alpha / 255).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(x, y, 0.32 + k * 2.0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', resize);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelAnimationFrame(raf); else { resize(); frame(); }
+  });
+  resize(); frame();
+})();
+
+// ---- version manifest ------------------------------------------------------
+fetch('version.json?t=' + Date.now())
+  .then(r => r.json())
+  .then(v => {
+    document.getElementById('ver').textContent = 'v' + (v.versionName || '?');
+    if (v.updated) document.getElementById('updated').textContent = 'Released ' + v.updated;
+    if (v.notes) document.getElementById('notes').textContent = v.notes;
+    if (v.apkUrl) document.getElementById('download').href = v.apkUrl;
+    if (v.telegram) document.getElementById('telegram').href = v.telegram;
+  })
+  .catch(() => {
+    document.getElementById('ver').textContent = 'v1.0';
+    document.getElementById('notes').textContent =
+      'Changelog unavailable offline. Check the Telegram channel for the latest notes.';
+  });
+</script>
+</body>
+</html>

@@ -234,9 +234,14 @@ class StarfieldView @JvmOverloads constructor(
         if (visibility == VISIBLE) resume() else running = false
     }
 
-    private fun resume() {
+    fun resume() {
         running = true
         lastFrame = 0L
         postInvalidateOnAnimation()
+    }
+
+    /** Frees the render loop while the game (or another app) owns the screen. */
+    fun pause() {
+        running = false
     }
 }

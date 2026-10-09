@@ -4,7 +4,7 @@ import android.content.Context
 
 /**
  * Handles everything that happens as root: staging the two libraries where the game can
- * load them, finding the game's PID, and running the injector binary.
+ * load them, finding the right PID, and running the injector binary.
  */
 object Injector {
 
@@ -37,21 +37,36 @@ object Injector {
             "echo STAGED"
         ).joinToString(" ; ")
 
-        val r = RootShell.root(script, timeoutSec = 40)
-
-        // Verify through root: /data/local/tmp is not listable by normal apps.
-        val check = RootShell.root(
-            "[ -f '$bin' ] && [ -f '$payload' ] && [ -s '$bin' ] && [ -s '$payload' ] && echo OK",
-            timeoutSec = 15
-        )
+        val r = RootShell.root(script, timeoutSec = 60)
 
         return StageResult(
-            ok = check.out.contains("OK"),
+            ok = isStaged(),
             log = (r.out + r.err).trim()
         )
     }
 
     data class StageResult(val ok: Boolean, val log: String)
+
+    /** True when both files are already in place and executable. */
+    fun isStaged(): Boolean {
+        val r = RootShell.root(
+            "[ -x '${InjectorConfig.INJECTOR_BIN}' ] " +
+                "&& [ -s '${InjectorConfig.PAYLOAD_PATH}' ] && echo YES",
+            timeoutSec = 15
+        )
+        return r.out.contains("YES")
+    }
+
+    /** Staging is ~5 MB of shell I/O, so only redo it when the payload actually changed. */
+    fun needsStaging(context: Context): Boolean {
+        if (!isStaged()) return true
+        val local = java.io.File(context.applicationInfo.nativeLibraryDir, InjectorConfig.PAYLOAD_LIB)
+        val remote = RootShell.root(
+            "stat -c %s '${InjectorConfig.PAYLOAD_PATH}' 2>/dev/null",
+            timeoutSec = 10
+        ).out.trim().toLongOrNull() ?: 0L
+        return local.length() != remote
+    }
 
     /** First PID whose process name matches [processName], or 0. */
     fun pidOf(processName: String): Int {
@@ -73,6 +88,70 @@ object Injector {
             .map { it.trim() }
             .filter { it.all { c -> c.isDigit() } }
             .mapNotNull { it.toIntOrNull() }
+    }
+
+    /** Is [name] mapped into this process? Read from /proc/<pid>/maps. */
+    fun hasLibraryMapped(pid: Int, name: String): Boolean {
+        if (pid <= 0) return false
+        val r = RootShell.root(
+            "grep -q '$name' /proc/$pid/maps 2>/dev/null && echo YES",
+            timeoutSec = 10
+        )
+        return r.out.contains("YES")
+    }
+
+    /** True once the Unity runtime is loaded and the payload can resolve its symbols. */
+    fun isRuntimeReady(pid: Int): Boolean =
+        InjectorConfig.UNITY_MARKERS.any { hasLibraryMapped(pid, it) }
+
+    /**
+     * Polls until the game process exists and — when WAIT_FOR_UNITY is on — until the Unity
+     * runtime is mapped. Returns the PID, or 0 if nothing usable showed up in time.
+     *
+     * [onProgress] is called with human readable status while we wait.
+     */
+    fun awaitGameProcess(
+        processName: String,
+        onProgress: (String) -> Unit
+    ): Int {
+        val deadline = System.currentTimeMillis() + InjectorConfig.PID_TIMEOUT_MS
+        val unityDeadline = System.currentTimeMillis() + InjectorConfig.UNITY_TIMEOUT_MS
+        var fallback = 0
+        var announced = false
+
+        while (System.currentTimeMillis() < deadline) {
+            val pids = pidsOf(processName).filter { it > 0 }
+            if (pids.isEmpty()) {
+                Thread.sleep(400)
+                continue
+            }
+            if (fallback == 0) fallback = pids.first()
+
+            val ready = pids.firstOrNull { isRuntimeReady(it) }
+            if (ready != null) return ready
+
+            if (!InjectorConfig.WAIT_FOR_UNITY) return fallback
+
+            if (!announced) {
+                announced = true
+                onProgress("Process up (PID ${fallback}) — waiting for the Unity runtime to load…")
+            }
+            if (System.currentTimeMillis() > unityDeadline) break
+            Thread.sleep(700)
+        }
+
+        if (fallback == 0) {
+            val lastChance = pidOf(processName)
+            if (lastChance > 0) return lastChance
+            return 0
+        }
+
+        return if (InjectorConfig.INJECT_ANYWAY_ON_TIMEOUT) {
+            onProgress("Runtime markers not seen — injecting into PID $fallback anyway.")
+            fallback
+        } else {
+            0
+        }
     }
 
     /** Builds the concrete injector commands for a PID, one per argument template. */

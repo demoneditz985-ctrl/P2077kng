@@ -1,6 +1,8 @@
 package com.shadow.injector
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -17,6 +19,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.ColorRes
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executors
@@ -24,8 +27,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity() {
 
+    private companion object {
+        const val PREF_PROMO_DONE = "promo_telegram_done"
+    }
+
     private val main = Handler(Looper.getMainLooper())
     private val bg = Executors.newSingleThreadExecutor()
+
+    private lateinit var starfield: StarfieldView
 
     private lateinit var pillOverlay: TextView
     private lateinit var pillRoot: TextView
@@ -50,6 +59,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        starfield = findViewById(R.id.starfield)
+
         pillOverlay = findViewById(R.id.pillOverlay)
         pillRoot = findViewById(R.id.pillRoot)
         pillPayload = findViewById(R.id.pillPayload)
@@ -64,6 +75,20 @@ class MainActivity : AppCompatActivity() {
         log("SHADOW INJECTOR v${BuildConfig.VERSION_NAME}", R.color.accent)
         log("arm64 · libmain.so (IL2CPP) · libRootMagisk.so (ptrace)", R.color.text_dim)
         log("Waiting for overlay permission + root access…", R.color.text_dim)
+
+        checkForUpdateOnStart()
+        main.postDelayed({ maybeShowTelegramPromo() }, 700)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        starfield.resume()
+    }
+
+    override fun onStop() {
+        // Stop burning CPU on the animation while the game is on screen.
+        starfield.pause()
+        super.onStop()
     }
 
     override fun onResume() {
@@ -266,19 +291,23 @@ class MainActivity : AppCompatActivity() {
         try {
             log("──── ${target.label} · ${target.pkg} ────", R.color.accent_alt)
 
-            // 1. Stage both libraries where root and the game can reach them.
-            log("Staging payload → ${InjectorConfig.WORK_DIR}", R.color.text_dim)
-            val staged = Injector.stage(this)
-            if (staged.log.isNotBlank()) {
-                staged.log.lineSequence()
-                    .filter { it.isNotBlank() }
-                    .forEach { log("   $it", R.color.text_dim) }
+            // 1. Stage both libraries where root and the game can reach them (only if changed).
+            if (!Injector.needsStaging(this)) {
+                log("Payload already staged in ${InjectorConfig.WORK_DIR}", R.color.text_dim)
+            } else {
+                log("Staging payload → ${InjectorConfig.WORK_DIR}", R.color.text_dim)
+                val staged = Injector.stage(this)
+                if (staged.log.isNotBlank()) {
+                    staged.log.lineSequence()
+                        .filter { it.isNotBlank() }
+                        .forEach { log("   $it", R.color.text_dim) }
+                }
+                if (!staged.ok) {
+                    log("Staging failed — see output above.", R.color.bad)
+                    return
+                }
+                log("Payload staged (injector + libmain.so, 0755).", R.color.ok)
             }
-            if (!staged.ok) {
-                log("Staging failed — see output above.", R.color.bad)
-                return
-            }
-            log("Payload staged (injector + libmain.so, 0755).", R.color.ok)
 
             // 2. Restart the game so we inject into a fresh process.
             log("Restarting ${target.pkg}…", R.color.text_dim)
@@ -291,19 +320,15 @@ class MainActivity : AppCompatActivity() {
             }
             log("Launch intent sent.", R.color.text_dim)
 
-            // 3. Wait for the process to appear.
-            var pid = 0
-            val deadline = System.currentTimeMillis() + InjectorConfig.PID_TIMEOUT_MS
-            while (System.currentTimeMillis() < deadline) {
-                pid = Injector.pidOf(target.processName)
-                if (pid > 0) break
-                Thread.sleep(500)
-            }
+            // 3. Wait for the process, and for the Unity runtime to be mapped.
+            //    Injecting before libil2cpp.so is loaded is what makes the payload die a
+            //    minute or two later (or instantly), so this wait is deliberate.
+            val pid = Injector.awaitGameProcess(target.processName) { log(it, R.color.text_dim) }
             if (pid <= 0) {
-                log("Game process never appeared (${InjectorConfig.PID_TIMEOUT_MS / 1000}s).", R.color.bad)
+                log("Game process never became ready — aborting.", R.color.bad)
                 return
             }
-            log("Target PID = $pid", R.color.text_dim)
+            log("Target PID = $pid (runtime ready: ${Injector.isRuntimeReady(pid)})", R.color.text_dim)
 
             // 4. Run the injector binary. Try every argument template.
             val candidates = Injector.commandCandidates(pid)
@@ -388,6 +413,86 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopOverlayChip() {
         runCatching { stopService(Intent(this, OverlayService::class.java)) }
+    }
+
+    // ------------------------------------------------------------------ dialogs
+
+    /** Telegram promo — shown once, then never again. JOIN opens the link, CLOSE dismisses. */
+    private fun maybeShowTelegramPromo() {
+        if (isFinishing || isDestroyed) return
+        val prefs = getSharedPreferences("shadow", MODE_PRIVATE)
+        if (prefs.getBoolean(PREF_PROMO_DONE, false)) return
+
+        val view = layoutInflater.inflate(R.layout.dialog_promo, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .setCancelable(true)
+            .create()
+
+        val dismissPermanently = {
+            prefs.edit().putBoolean(PREF_PROMO_DONE, true).apply()
+            dialog.dismiss()
+        }
+
+        view.findViewById<View>(R.id.btnJoin).setOnClickListener {
+            Updater.openUrl(this, Updater.TELEGRAM_URL)
+            dismissPermanently()
+        }
+        view.findViewById<View>(R.id.btnClose).setOnClickListener { dismissPermanently() }
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+    }
+
+    private fun checkForUpdateOnStart() {
+        bg.execute {
+            val info = Updater.checkUpdate()
+            if (info != null) main.post { showUpdateDialog(info) }
+        }
+    }
+
+    private fun showUpdateDialog(info: Updater.Info) {
+        if (isFinishing || isDestroyed) return
+        val view = layoutInflater.inflate(R.layout.dialog_update, null)
+        view.findViewById<TextView>(R.id.txtUpdateVersion).text = "v${info.versionName}"
+        view.findViewById<TextView>(R.id.txtUpdateNotes).text = info.notes
+
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .setCancelable(!info.force)
+            .create()
+
+        val later = view.findViewById<View>(R.id.btnUpdateLater)
+        later.visibility = if (info.force) View.GONE else View.VISIBLE
+        later.setOnClickListener { dialog.dismiss() }
+
+        view.findViewById<View>(R.id.btnUpdateNow).setOnClickListener {
+            dialog.dismiss()
+            downloadAndInstall(info)
+        }
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+    }
+
+    private fun downloadAndInstall(info: Updater.Info) {
+        log("Downloading update v${info.versionName}…", R.color.accent)
+        bg.execute {
+            val apk = Updater.download(this, info)
+            main.post {
+                if (apk == null) {
+                    log("Update download failed — check your connection.", R.color.bad)
+                    return@post
+                }
+                log("Update downloaded (${apk.length() / 1024} KB).", R.color.ok)
+                if (!Updater.canInstallPackages(this)) {
+                    log("Allow “install unknown apps” for Shadow Injector, then retry.", R.color.warn)
+                    Updater.openInstallPermissionSettings(this)
+                } else {
+                    Updater.install(this, apk)
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ session log

@@ -19,4 +19,15 @@
 
     <string name="installed">INSTALLED</string>
     <string name="not_found">NOT FOUND</string>
+
+    <!-- Telegram promo -->
+    <string name="promo_title">JOIN TELEGRAM</string>
+    <string name="promo_body">Get the latest working builds, fixes and announcements as soon as they drop.\n\nTap JOIN to open the channel. Tap CLOSE to dismiss this and never see it again.</string>
+    <string name="join">JOIN</string>
+    <string name="close">CLOSE</string>
+
+    <!-- Self updater -->
+    <string name="update_available">UPDATE AVAILABLE</string>
+    <string name="later">LATER</string>
+    <string name="update">UPDATE</string>
 </resources>

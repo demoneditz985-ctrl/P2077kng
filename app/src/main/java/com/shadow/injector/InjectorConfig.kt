@@ -49,6 +49,23 @@ object InjectorConfig {
     /** How long to poll for the game process after launching it. */
     const val PID_TIMEOUT_MS = 30_000L
 
+    // ---- timing / stability -------------------------------------------------
+    // The payload resolves il2cpp_* symbols, so dlopen()ing it before libil2cpp.so
+    // is mapped into the game is the classic "menu appears then dies" crash.
+    // We therefore wait until the Unity runtime is actually loaded before injecting.
+
+    /** Wait for the Unity runtime to be mapped before running the injector. */
+    const val WAIT_FOR_UNITY = true
+
+    /** Any of these in /proc/<pid>/maps counts as "the runtime is up". */
+    val UNITY_MARKERS = arrayOf("libil2cpp.so", "libunity.so")
+
+    /** How long to wait for that before giving up. */
+    const val UNITY_TIMEOUT_MS = 90_000L
+
+    /** If the markers never appear, inject into the first matching pid anyway. */
+    const val INJECT_ANYWAY_ON_TIMEOUT = true
+
     /** If every argument template fails, retry once with SELinux in permissive mode. */
     const val RETRY_PERMISSIVE = true
 }

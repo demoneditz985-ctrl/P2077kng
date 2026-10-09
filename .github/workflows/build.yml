@@ -3,6 +3,7 @@ name: Build Shadow Injector APK
 on:
   push:
     branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -105,6 +106,19 @@ jobs:
           name: shadow-injector-apk
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
+
+      # Push a tag (git tag v1.1 && git push origin v1.1) to cut a release with the APKs
+      # attached. docs/version.json drives the in-app updater, so bump it in the same commit.
+      - name: Create GitHub Release
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "SHADOW INJECTOR $GITHUB_REF_NAME" \
+            --notes-file docs/release-notes.md \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: Report APK contents
         if: success()
