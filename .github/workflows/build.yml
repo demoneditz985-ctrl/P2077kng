@@ -114,8 +114,12 @@ jobs:
             echo "date: $(date -u)"
             for apk in app/build/outputs/apk/*/*.apk; do
               echo "=================== $apk"
-              echo "--- native libs (method = Stored means uncompressed, as required) ---"
+              echo "--- native libs ---"
               unzip -v "$apk" | grep -E "lib/.*\.so" || echo "(no .so found)"
+              echo "--- extractNativeLibs from merged manifest ---"
+              "$ANDROID_HOME/build-tools/34.0.0/aapt2" dump xmltree "$apk" \
+                --file AndroidManifest.xml 2>/dev/null \
+                | grep -i -B1 -A1 "extractNativeLibs" || echo "(not set)"
               echo "--- summary ---"
               unzip -l "$apk" | tail -3
             done
